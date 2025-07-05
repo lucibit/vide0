@@ -87,26 +87,16 @@ def upload_file(server_url, keys_dir, filepath, key_id):
     print(f"Split into {total_chunks} chunks.")
 
     # Initiate upload
-    message = f"initiate:{filename}:{total_chunks}".encode()
-    signature = private_key.sign(message)
-    headers = key_headers(key_id, private_key)
     resp = requests.post(f"{server_url}/upload/initiate", data={
         'filename': filename,
         'total_chunks': total_chunks
-    }, headers=headers)
+    }, headers=key_headers(key_id, private_key))
     resp.raise_for_status()
     upload_id = resp.json()['upload_id']
     print(f"Upload ID: {upload_id}")
 
     # Upload chunks
     for i, chunk_path in enumerate(chunks, 1):
-        message = f"chunk:{upload_id}:{i}:{total_chunks}".encode()
-        signature = private_key.sign(message)
-        headers = {
-            'key-id': key_id,
-            'signature': base64.b64encode(signature).decode(),
-            'message': base64.b64encode(message).decode()
-        }
         with open(chunk_path, 'rb') as f:
             files = {'file': (os.path.basename(chunk_path), f)}
             data = {
@@ -114,17 +104,14 @@ def upload_file(server_url, keys_dir, filepath, key_id):
                 'chunk_number': i,
                 'total_chunks': total_chunks
             }
-            resp = requests.post(f"{server_url}/upload/chunk", data=data, files=files, headers=headers)
+            resp = requests.post(f"{server_url}/upload/chunk", data=data, files=files, headers=key_headers(key_id, private_key))
             resp.raise_for_status()
             print(f"Uploaded chunk {i}/{total_chunks}")
 
     # Complete upload
-    message = f"complete:{upload_id}".encode()
-    signature = private_key.sign(message)
-    headers = key_headers(key_id, private_key)
     resp = requests.post(f"{server_url}/upload/complete", data={
         'upload_id': upload_id
-    }, headers=headers)
+    }, headers=key_headers(key_id, private_key))
     resp.raise_for_status()
     print("Upload complete! Video link:", resp.json().get('video_link'))
 

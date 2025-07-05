@@ -166,12 +166,21 @@
         <div class="info-box">
             <strong>Admin Setup Required:</strong> 
             To configure admin keys, you need to set the following environment variables when starting the container:
+            <br>
+            <strong>Note:</strong> The public key file must be in the same directory as the NAS mount path.
             <br><br>
             <code>INITIAL_ADMIN_KEY_ID=your_admin_key_id</code><br>
-            <code>INITIAL_ADMIN_PUBLIC_KEY=your_public_key_pem</code>
+            <code>INITIAL_ADMIN_PUBLIC_KEY_FILE_NAME=path/to/your/public_key.pem</code>
             <br><br>
             Example:<br>
-            <code>docker run -e INITIAL_ADMIN_KEY_ID=admin -e INITIAL_ADMIN_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----..." your-image</code>
+            <code>docker run -e INITIAL_ADMIN_KEY_ID=admin -e INITIAL_ADMIN_PUBLIC_KEY_FILE_NAME=/app/keys/admin_public.pem your-image</code>
+            <br><br>
+            <strong>Steps:</strong>
+            <ol>
+                <li>Generate a key pair: <code>python upload_client.py generate-key admin --keys-dir keys</code></li>
+                <li>Set the environment variables pointing to the generated public key file</li>
+                <li>Restart the container</li>
+            </ol>
         </div>
         {% endif %}
 

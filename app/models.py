@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from datetime import datetime
 
 Base = declarative_base()
@@ -40,13 +40,15 @@ class PublicKey(Base):
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = 'sqlite+aiosqlite:////nas/videos/db.sqlite3'
+DATABASE_URL = 'sqlite+aiosqlite:////nas/videos/vide0db.sqlite3'
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+main_engine = create_async_engine(DATABASE_URL, echo=True)
 AsyncSessionLocal = sessionmaker(
-    bind=engine, class_=AsyncSession, expire_on_commit=False
+    bind=main_engine, class_=AsyncSession, expire_on_commit=False
 )
 
-async def init_db():
+async def init_db(engine=None):
+    if engine is None:
+        engine = main_engine
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all) 

@@ -10,3 +10,6 @@ jinja2
 cryptography
 python-dotenv
 qrcode[pil]
+pytest
+pytest-asyncio
+    

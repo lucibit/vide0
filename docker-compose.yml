@@ -17,7 +17,7 @@ services:
       - DOMAIN=${DOMAIN:-localhost}
       - NAS_MOUNT_PATH=${NAS_MOUNT_PATH:-/nas/videos}
       - INITIAL_ADMIN_KEY_ID=${INITIAL_ADMIN_KEY_ID:-}
-      - INITIAL_ADMIN_PUBLIC_KEY=${INITIAL_ADMIN_PUBLIC_KEY:-}
+      - INITIAL_ADMIN_PUBLIC_KEY_FILE_NAME=${INITIAL_ADMIN_PUBLIC_KEY_FILE_NAME:-}
     volumes:
       - ${NAS_MOUNT_PATH:-./nas/videos}:/nas/videos
     restart: unless-stopped

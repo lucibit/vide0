@@ -7,9 +7,11 @@ from typing import Dict, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models import AsyncSessionLocal, PublicKey
-from app.core.config import config
+from app.core.config import get_config
 
 from fastapi import HTTPException, Header, Depends, Request
+import logging
+
 
 # Database helper functions
 async def get_db():
@@ -29,13 +31,20 @@ async def add_public_key_to_db(
     public_key_pem: str, 
     is_admin: bool = False,
     created_by: str = None,
-    domain: str = None
+    domain: str = None,
+    config = Depends(get_config)
 ) -> PublicKey:
     """Add a public key to the database"""
     # Check if key already exists
     existing_key = await get_public_key_by_id(session, key_id)
     if existing_key:
         raise HTTPException(status_code=400, detail=f"Key {key_id} already exists")
+    
+    # validate public key
+    try:
+        serialization.load_pem_public_key(public_key_pem.encode(), backend=None)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid public key: {str(e)}")
     
     public_key = PublicKey(
         key_id=key_id,
@@ -101,23 +110,21 @@ async def require_signature(
 ):
     """Verify signature for any key"""
     # Get the public key from database
+    logging.info(f"Verifying signature for key_id: {key_id}")
     public_key_record = await get_public_key_by_id(session, key_id)
     if not public_key_record:
+        logging.error(f"❌ Key not found: {key_id}")
         raise HTTPException(status_code=401, detail="Key not found")
-    
     try:
         # Load the public key
         public_key = serialization.load_pem_public_key(
             public_key_record.public_key_pem.encode(),
             backend=None
         )
-        
         # Verify the signature
         signature_bytes = base64.b64decode(signature)
-        message_bytes = message.encode()
-        
+        message_bytes = base64.b64decode(message)
         public_key.verify(signature_bytes, message_bytes)
-        
     except (ValueError, InvalidSignature, Exception) as e:
         raise HTTPException(status_code=401, detail=f"Invalid signature: {str(e)}")
     

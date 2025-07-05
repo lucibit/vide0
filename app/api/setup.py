@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import AsyncSessionLocal
-from app.core.config import config
+from app.core.config import get_config
 from app.core.security import get_admin_keys
 import json
 import qrcode
@@ -33,7 +33,7 @@ def generate_qr_code(data: dict) -> str:
     return base64.b64encode(buffer.getvalue()).decode()
 
 @router.get("/setup", response_class=HTMLResponse)
-async def setup_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def setup_page(request: Request, db: AsyncSession = Depends(get_db), config = Depends(get_config)):
     """Setup page with QR code for iOS app configuration"""
     # Check if admin keys exist
     admin_keys = await get_admin_keys(db)

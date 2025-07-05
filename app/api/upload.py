@@ -8,14 +8,7 @@ import uuid
 import os
 import shutil
 from datetime import datetime
-
-
-# Path where NAS is mounted inside the container
-NAS_MOUNT_PATH = "/nas/videos"
-CHUNKS_DIR = os.path.join(NAS_MOUNT_PATH, "chunks")
-VIDEOS_DIR = os.path.join(NAS_MOUNT_PATH, "videos")
-os.makedirs(CHUNKS_DIR, exist_ok=True)
-os.makedirs(VIDEOS_DIR, exist_ok=True)
+from app.core.config import Config, get_config
 
 router = APIRouter()
 
@@ -35,7 +28,7 @@ async def initiate_upload(
     filename: str = Form(...),
     total_chunks: int = Form(...),
     db: AsyncSession = Depends(get_db),
-    key_id: str = Depends(require_signature)
+    key_id: str = Depends(require_signature),
 ):
     upload_id = str(uuid.uuid4())
     # Generate unique filename to prevent overwrites
@@ -63,7 +56,8 @@ async def upload_chunk(
     total_chunks: int = Form(...),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    key_id: str = Depends(require_signature)
+    key_id: str = Depends(require_signature),
+    config: Config = Depends(get_config)
 ):
     # Enforce key_id consistency
     result = await db.execute(
@@ -78,7 +72,7 @@ async def upload_chunk(
     if chunk.uploader_key_id != key_id:
         raise HTTPException(status_code=403, detail="Uploader key_id mismatch for this upload_id")
     # Save chunk to disk using shutil
-    chunk_path = os.path.join(CHUNKS_DIR, f"{upload_id}_{chunk_number}.part")
+    chunk_path = os.path.join(config.chunks_dir, f"{upload_id}_{chunk_number}.part")
     with open(chunk_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     chunk.received = True
@@ -89,7 +83,8 @@ async def upload_chunk(
 async def complete_upload(
     upload_id: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    key_id: str = Depends(require_signature)
+    key_id: str = Depends(require_signature),
+    config: Config = Depends(get_config)
 ):
     # Get all chunks for this upload
     result = await db.execute(
@@ -106,11 +101,11 @@ async def complete_upload(
         raise HTTPException(status_code=400, detail="Not all chunks uploaded yet")
     unique_filename = chunks[0].filename  # This is now the unique filename
     total_chunks = chunks[0].total_chunks
-    assembled_path = os.path.join(VIDEOS_DIR, unique_filename)
+    assembled_path = os.path.join(config.videos_dir, unique_filename)
     # Assemble chunks using shutil
     with open(assembled_path, "wb") as outfile:
         for i in range(1, total_chunks + 1):
-            chunk_path = os.path.join(CHUNKS_DIR, f"{upload_id}_{i}.part")
+            chunk_path = os.path.join(config.chunks_dir, f"{upload_id}_{i}.part")
             with open(chunk_path, "rb") as infile:
                 shutil.copyfileobj(infile, outfile)
             os.remove(chunk_path)
@@ -133,7 +128,7 @@ async def complete_upload(
     return {"status": "upload complete", "video_link": f"/videos/{share_token}"}
 
 @router.get("/videos/{share_token}")
-async def share_video(share_token: str, db: AsyncSession = Depends(get_db)):
+async def share_video(share_token: str, db: AsyncSession = Depends(get_db), config: Config = Depends(get_config)):
     # Find video by share token
     result = await db.execute(
         select(Video).where(Video.share_token == share_token)
@@ -144,7 +139,7 @@ async def share_video(share_token: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Video not found")
     
     # Check if file exists
-    video_path = os.path.join(VIDEOS_DIR, video.filename)
+    video_path = os.path.join(config.videos_dir, video.filename)
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Video file not found")
     
