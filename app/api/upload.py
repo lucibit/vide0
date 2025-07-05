@@ -1,14 +1,14 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Header, Request
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models import AsyncSessionLocal, ChunkUpload, Video
-from app.core.security import verify_signature
+from app.core.security import require_signature
 import uuid
 import os
 import shutil
 from datetime import datetime
-import base64
+
 
 # Path where NAS is mounted inside the container
 NAS_MOUNT_PATH = "/nas/videos"
@@ -28,22 +28,7 @@ def generate_unique_filename(original_filename: str) -> str:
     name, ext = os.path.splitext(original_filename)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]
-    return f"{name}_{timestamp}_{unique_id}{ext}"
-
-def require_signature(
-    key_id: str = Header(...),
-    signature: str = Header(...),
-    message: str = Header(...)
-):
-    # signature and message are base64-encoded
-    try:
-        signature_bytes = base64.b64decode(signature)
-        message_bytes = base64.b64decode(message)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid base64 encoding for signature or message")
-    if not verify_signature(key_id, message_bytes, signature_bytes):
-        raise HTTPException(status_code=401, detail="Invalid signature or key not whitelisted")
-    return key_id
+    return f"{name}_{timestamp}_{unique_id}{ext}"        
 
 @router.post("/upload/initiate")
 async def initiate_upload(

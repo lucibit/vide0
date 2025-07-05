@@ -67,13 +67,14 @@ def key_headers(key_id, private_key):
         'message': base64.b64encode(message).decode()
     }
 
-def upload_key(server_url, keys_dir, key_id):
+def upload_key(server_url, keys_dir, key_id, is_admin=False):
     public_key_pem = load_public_key(keys_dir, key_id)
     private_key = load_private_key(keys_dir, ADMIN_KEY_ID)
     headers = key_headers(ADMIN_KEY_ID, private_key)
     resp = requests.post(f"{server_url}/auth/whitelist/add", data={
         'key_id': key_id,
-        'public_key_pem': public_key_pem
+        'public_key_pem': public_key_pem,
+        'is_admin': str(is_admin).lower()
     }, headers=headers)
     print(resp.status_code, resp.text)
 
@@ -102,7 +103,7 @@ def upload_file(server_url, keys_dir, filepath, key_id):
         message = f"chunk:{upload_id}:{i}:{total_chunks}".encode()
         signature = private_key.sign(message)
         headers = {
-            'key_id': key_id,
+            'key-id': key_id,
             'signature': base64.b64encode(signature).decode(),
             'message': base64.b64encode(message).decode()
         }
@@ -144,6 +145,7 @@ if __name__ == "__main__":
 
     upload_key_parser = subparsers.add_parser("upload-key", help="Upload existing public key to the server.")
     upload_key_parser.add_argument('key_id', help='Key ID to use for signing')
+    upload_key_parser.add_argument('--admin', action='store_true', help='Mark this key as an admin key')
 
     # Mode: upload
     upload_parser = subparsers.add_parser("upload-video", help="Upload a video file using a key.")
@@ -163,6 +165,6 @@ if __name__ == "__main__":
             else:
                 upload_key(server_url=args.server_url, keys_dir=args.keys_dir, key_id=args.key_id)
     elif args.mode == "upload-key":
-        upload_key(server_url=args.server_url, keys_dir=args.keys_dir, key_id=args.key_id)
+        upload_key(server_url=args.server_url, keys_dir=args.keys_dir, key_id=args.key_id, is_admin=args.admin)
     elif args.mode == "upload-video":
         upload_file(server_url=args.server_url, keys_dir=args.keys_dir, filepath=args.filepath, key_id=args.key_id) 

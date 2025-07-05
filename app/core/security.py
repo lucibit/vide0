@@ -1,60 +1,124 @@
+import base64
 import os
-import json
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives import serialization
 from cryptography.exceptions import InvalidSignature
-from typing import Dict
+from typing import Dict, List
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from app.models import AsyncSessionLocal, PublicKey
+from app.core.config import config
 
-KEYS_FILE = os.environ.get("KEYS_FILE", "app/keys/whitelist.json")
-# For now, the admin key is the first key in the whitelist
-ADMIN_KEY_ID = os.environ.get("ADMIN_KEY_ID", "lucibit")  # Optionally set via env
+from fastapi import HTTPException, Header, Depends, Request
 
-# Ensure keys directory exists
-os.makedirs(os.path.dirname(KEYS_FILE), exist_ok=True)
+# Database helper functions
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 
-# Load whitelisted public keys from JSON file
-def load_whitelisted_keys() -> Dict[str, str]:
-    if not os.path.exists(KEYS_FILE):
-        return {}
-    with open(KEYS_FILE, "r") as f:
-        return json.load(f)
+async def get_public_key_by_id(session: AsyncSession, key_id: str) -> PublicKey:
+    """Get a public key by key_id from the database"""
+    result = await session.execute(
+        select(PublicKey).where(PublicKey.key_id == key_id)
+    )
+    return result.scalar_one_or_none()
 
-# Save whitelisted public keys to JSON file
-def save_whitelisted_keys(keys: Dict[str, str]):
-    with open(KEYS_FILE, "w") as f:
-        json.dump(keys, f, indent=2)
-
-# Add a public key to the whitelist
-def add_public_key(key_id: str, public_key_pem: str):
-    keys = load_whitelisted_keys()
-    keys[key_id] = public_key_pem
-    save_whitelisted_keys(keys)
-
-# Remove a public key from the whitelist
-def remove_public_key(key_id: str):
-    keys = load_whitelisted_keys()
-    if key_id in keys:
-        del keys[key_id]
-        save_whitelisted_keys(keys)
-
-# Verify a signature using Ed25519
-def verify_signature(key_id: str, message: bytes, signature: bytes) -> bool:
-    keys = load_whitelisted_keys()
-    public_key_pem = keys.get(key_id)
-    if not public_key_pem:
-        return False
-    public_key = serialization.load_pem_public_key(public_key_pem.encode())
-    try:
-        public_key.verify(signature, message)
-        return True
-    except InvalidSignature:
-        return False 
+async def add_public_key_to_db(
+    session: AsyncSession, 
+    key_id: str, 
+    public_key_pem: str, 
+    is_admin: bool = False,
+    created_by: str = None,
+    domain: str = None
+) -> PublicKey:
+    """Add a public key to the database"""
+    # Check if key already exists
+    existing_key = await get_public_key_by_id(session, key_id)
+    if existing_key:
+        raise HTTPException(status_code=400, detail=f"Key {key_id} already exists")
     
-def get_admin_key_id():
-    keys = load_whitelisted_keys()
-    if ADMIN_KEY_ID and ADMIN_KEY_ID in keys:
-        return ADMIN_KEY_ID
-    # fallback: first key in the whitelist
-    if keys:
-        return next(iter(keys.keys()))
-    return None
+    public_key = PublicKey(
+        key_id=key_id,
+        public_key_pem=public_key_pem,
+        is_admin=is_admin,
+        created_by=created_by,
+        domain=domain or config.domain
+    )
+    session.add(public_key)
+    await session.commit()
+    await session.refresh(public_key)
+    return public_key
+
+async def remove_public_key_from_db(session: AsyncSession, key_id: str) -> bool:
+    """Remove a public key from the database"""
+    public_key = await get_public_key_by_id(session, key_id)
+    if not public_key:
+        raise HTTPException(status_code=404, detail=f"Key {key_id} not found")
+    
+    await session.delete(public_key)
+    await session.commit()
+    return True
+
+async def get_all_public_keys(session: AsyncSession) -> List[PublicKey]:
+    """Get all public keys from the database"""
+    result = await session.execute(select(PublicKey))
+    return result.scalars().all()
+
+async def get_admin_keys(session: AsyncSession) -> List[PublicKey]:
+    """Get all admin keys from the database"""
+    result = await session.execute(
+        select(PublicKey).where(PublicKey.is_admin == True)
+    )
+    return result.scalars().all()
+
+async def is_admin_key(session: AsyncSession, key_id: str) -> bool:
+    """Check if a key_id is an admin key"""
+    public_key = await get_public_key_by_id(session, key_id)
+    return public_key.is_admin if public_key else False
+
+# Require admin authentication
+async def require_admin_auth(
+    key_id: str = Header(...),
+    signature: str = Header(...),
+    message: str = Header(...),
+    session: AsyncSession = Depends(get_db)
+):
+    """Require admin authentication"""
+    # First verify the signature
+    await require_signature(key_id, signature, message, session)
+    
+    # Then check if it's an admin key
+    if not await is_admin_key(session, key_id):
+        raise HTTPException(status_code=401, detail="Not authorized: not admin key")
+    
+    return key_id
+
+async def require_signature(
+    key_id: str = Header(...),
+    signature: str = Header(...),
+    message: str = Header(...),
+    session: AsyncSession = Depends(get_db)
+):
+    """Verify signature for any key"""
+    # Get the public key from database
+    public_key_record = await get_public_key_by_id(session, key_id)
+    if not public_key_record:
+        raise HTTPException(status_code=401, detail="Key not found")
+    
+    try:
+        # Load the public key
+        public_key = serialization.load_pem_public_key(
+            public_key_record.public_key_pem.encode(),
+            backend=None
+        )
+        
+        # Verify the signature
+        signature_bytes = base64.b64decode(signature)
+        message_bytes = message.encode()
+        
+        public_key.verify(signature_bytes, message_bytes)
+        
+    except (ValueError, InvalidSignature, Exception) as e:
+        raise HTTPException(status_code=401, detail=f"Invalid signature: {str(e)}")
+    
+    return key_id

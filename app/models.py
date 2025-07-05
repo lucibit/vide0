@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 from datetime import datetime
 
 Base = declarative_base()
@@ -9,7 +8,7 @@ class Video(Base):
     __tablename__ = 'videos'
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, unique=True, index=True)
-    upload_date = Column(DateTime, default=datetime.utcnow)
+    upload_date = Column(DateTime, default=datetime.now())
     file_size = Column(Integer)
     password = Column(String, nullable=True)
     share_token = Column(String, unique=True, index=True)
@@ -24,8 +23,18 @@ class ChunkUpload(Base):
     chunk_number = Column(Integer)
     total_chunks = Column(Integer)
     received = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now())
     uploader_key_id = Column(String, nullable=True)
+
+class PublicKey(Base):
+    __tablename__ = 'public_keys'
+    id = Column(Integer, primary_key=True, index=True)
+    key_id = Column(String, unique=True, index=True)
+    public_key_pem = Column(Text, nullable=False)  # Changed to Text for longer PEM keys
+    is_admin = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now())
+    created_by = Column(String, nullable=True)  # key_id of who created this key
+    domain = Column(String, nullable=True)  # Domain this key was created for
 
 # Helper for DB setup
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession

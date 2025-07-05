@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Server Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f7;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #1d1d1f;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #86868b;
+            font-size: 18px;
+        }
+        .qr-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .qr-code {
+            margin: 20px 0;
+        }
+        .qr-code img {
+            border: 2px solid #007aff;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        .status.local {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.remote {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .json-data {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .admin-status {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .admin-status h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .admin-status .status-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .admin-status .status-icon {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+        .admin-status .status-icon.success {
+            color: #28a745;
+        }
+        .admin-status .status-icon.warning {
+            color: #ffc107;
+        }
+        .admin-status .status-icon.error {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Video Server Setup</h1>
+            <p>Configure your iOS app to connect to this server</p>
+        </div>
+
+        <div class="admin-status">
+            <h3>🔑 Admin Key Status</h3>
+            <div class="status-item">
+                <span class="status-icon {% if has_admin_keys %}success{% else %}warning{% endif %}">
+                    {% if has_admin_keys %}✅{% else %}⚠️{% endif %}
+                </span>
+                <span>
+                    {% if has_admin_keys %}
+                        Admin keys are configured and the server is ready for use
+                    {% else %}
+                        No admin keys found in database
+                    {% endif %}
+                </span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-icon {% if initial_admin_configured %}success{% else %}error{% endif %}">
+                    {% if initial_admin_configured %}✅{% else %}❌{% endif %}
+                </span>
+                <span>
+                    {% if initial_admin_configured %}
+                        Initial admin key configured via environment variables
+                    {% else %}
+                        Initial admin key not configured via environment variables
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div class="qr-section">
+            <h2>📱 iOS App Configuration</h2>
+            <p>Scan this QR code with your iOS app to automatically configure the connection:</p>
+            
+            <div class="qr-code">
+                <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code for iOS app configuration">
+            </div>
+            
+            <p><strong>Domain:</strong> {{ domain }}</p>
+            {% if has_admin_keys %}
+                <p>✅ Admin keys are configured</p>
+            {% else %}
+                <p>⚠️ No admin keys configured yet</p>
+            {% endif %}
+        </div>
+
+        {% if not has_admin_keys and not initial_admin_configured %}
+        <div class="info-box">
+            <strong>Admin Setup Required:</strong> 
+            To configure admin keys, you need to set the following environment variables when starting the container:
+            <br><br>
+            <code>INITIAL_ADMIN_KEY_ID=your_admin_key_id</code><br>
+            <code>INITIAL_ADMIN_PUBLIC_KEY=your_public_key_pem</code>
+            <br><br>
+            Example:<br>
+            <code>docker run -e INITIAL_ADMIN_KEY_ID=admin -e INITIAL_ADMIN_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----..." your-image</code>
+        </div>
+        {% endif %}
+
+        <div class="form-section">
+            <h2>📋 Configuration Data</h2>
+            <p>This is the data that will be sent to your iOS app:</p>
+            <div class="json-data">{{ qr_data }}</div>
+        </div>
+    </div>
+</body>
+</html> 
