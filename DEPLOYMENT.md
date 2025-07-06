@@ -21,9 +21,7 @@ NAS_MOUNT_PATH=/path/to/your/nas/videos
 
 # Initial admin key configuration (optional)
 INITIAL_ADMIN_KEY_ID=admin
-INITIAL_ADMIN_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
------END PUBLIC KEY-----"
+INITIAL_ADMIN_PUBLIC_KEY_NAME=admin_public.pem
 ```
 
 ## Initial Admin Key Setup
@@ -38,10 +36,7 @@ python upload_client.py generate-key admin
 
 # Add to your .env file
 INITIAL_ADMIN_KEY_ID=admin
-INITIAL_ADMIN_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
------END PUBLIC KEY-----"
-```
+INITIAL_ADMIN_PUBLIC_KEY_NAME=admin_public.pem
 
 The admin key will be automatically created when the container starts.
 
