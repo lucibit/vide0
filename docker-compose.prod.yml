@@ -24,25 +24,15 @@ services:
     volumes:
       - ./nginx.template.conf:/etc/nginx/nginx.conf.template:ro
       - /volume1/Media/vide0:/nas/videos:ro
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
+      - /usr/syno/etc/certificate/system/default:/etc/synology/cert:ro
     environment:
-      - DOMAIN=${DOMAIN}
+      - DOMAIN=domain.example.com
     command: /bin/sh -c "envsubst '$$DOMAIN' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
     depends_on:
       - app
     networks:
       - vide0-network
 
-  certbot:
-    image: certbot/certbot
-    container_name: vide0-certbot
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    command: certonly --webroot --webroot-path=/var/www/certbot --email your-email@example.com --agree-tos --no-eff-email -d ${DOMAIN}
-    depends_on:
-      - nginx
 
 networks:
   vide0-network:

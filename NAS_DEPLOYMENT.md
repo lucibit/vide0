@@ -53,8 +53,6 @@
    # From your local machine, copy these files to the NAS:
    scp docker-compose.prod.yml admin@your-nas-ip:/volume1/Media/vide0/
    scp nginx.template.conf admin@your-nas-ip:/volume1/Media/vide0/
-   scp setup_https.sh admin@your-nas-ip:/volume1/Media/vide0/
-   scp renew_ssl.sh admin@your-nas-ip:/volume1/Media/vide0/
    scp admin_public.pem admin@your-nas-ip:/volume1/Media/vide0/admin_public.pem
    ```
 
@@ -67,10 +65,10 @@
 5. **Update the configuration**:
    ```bash
    # Update DOMAIN in docker-compose.prod.yml
-   sed -i 's/DOMAIN=domain.example.com/DOMAIN=your-actual-domain.com/g' docker-compose.prod.yml
+   sed -i 's/domain.example.com/your-domain.com/g' docker-compose.prod.yml
    
    # Update email address in docker-compose.prod.yml
-   sed -i 's/your-email@example.com/your-actual-email@example.com/g' docker-compose.prod.yml
+   sed -i 's/your-email@example.com/your-email.com/g' docker-compose.prod.yml
    ```
 
 6. **Deploy the containers**:
@@ -105,26 +103,8 @@
 Update your upload client to use HTTPS:
 
 ```bash
-python upload_client.py --keys-dir ../tmp/upload-keys --server-url https://your-domain:8483 upload-video /path/to/video.mp4 lucibit
+python upload_client.py --keys-dir ../tmp/upload-keys --server-url https://your-domain:8483 upload-video /path/to/video.mp4 admin
 ```
-
-## SSL Certificate Management
-
-### Automatic Renewal
-Let's Encrypt certificates expire after 90 days. Set up automatic renewal:
-
-1. **Add to crontab** (run every 60 days):
-   ```bash
-   crontab -e
-   # Add this line:
-   0 2 */60 * * /volume1/docker/vide0/renew_ssl.sh
-   ```
-
-2. **Manual renewal**:
-   ```bash
-   chmod +x renew_ssl.sh
-   ./renew_ssl.sh
-   ```
 
 ## Troubleshooting
 
@@ -187,19 +167,3 @@ With HTTPS enabled, you get:
 - **Monitor logs**: Check container logs periodically for issues
 - **Certificate renewal**: Set up automatic renewal or renew manually every 90 days
 
-## Files Structure
-
-```
-/volume1/docker/vide0/
-├── docker-compose.prod.yml
-├── nginx.template.conf
-├── setup_https.sh
-├── renew_ssl.sh
-└── certbot/
-    ├── conf/          # SSL certificates
-    └── www/           # Let's Encrypt challenge files
-
-/volume1/Media/vide0/
-├── admin_public.pem   # Admin public key
-└── videos/            # Uploaded videos
-``` 
