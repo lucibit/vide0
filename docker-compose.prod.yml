@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    image: lucibit/vide0:latest
+    container_name: vide0-app
+    restart: unless-stopped
+    volumes:
+      - /volume1/Media/vide0:/nas/videos
+    environment:
+      - DOMAIN=vide0.lucibit.com
+      - INITIAL_ADMIN_PUBLIC_KEY_FILE_NAME=admin_public.pem
+      - INITIAL_ADMIN_KEY_ID=admin
+    networks:
+      - vide0-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: vide0-nginx
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /volume1/Media/vide0:/nas/videos:ro
+    depends_on:
+      - app
+    networks:
+      - vide0-network
+
+networks:
+  vide0-network:
+    driver: bridge 

@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from app.core.config import Config, get_config
 from app.models import AsyncSessionLocal, Video
 import os
 
@@ -20,7 +21,7 @@ async def get_db():
         yield session
 
 @router.get("/play/{share_token}", response_class=HTMLResponse)
-async def play_video(request: Request, share_token: str, db: AsyncSession = Depends(get_db)):
+async def play_video(request: Request, share_token: str, db: AsyncSession = Depends(get_db), config: Config = Depends(get_config)):
     # Find video by share token
     result = await db.execute(
         select(Video).where(Video.share_token == share_token)
@@ -45,6 +46,8 @@ async def play_video(request: Request, share_token: str, db: AsyncSession = Depe
             "video_url": video_url,
             "filename": video.filename,
             "upload_date": video.upload_date.strftime("%Y-%m-%d %H:%M:%S") if video.upload_date else "Unknown",
-            "file_size": f"{video.file_size / (1024*1024):.1f} MB" if video.file_size else "Unknown"
+            "file_size": f"{video.file_size / (1024*1024):.1f} MB" if video.file_size else "Unknown",
+            "share_token": share_token,
+            "domain": config.domain,
         }
     ) 
